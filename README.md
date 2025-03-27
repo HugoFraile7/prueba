@@ -157,11 +157,11 @@ En este caso, no se puede ordenar por `n_killed`, ya que al ser `counter`, no pu
   ```
 
 Como `n_killed` es de tipo `counter`, se puede sumar uno cada vez que se produce la kill.
-# 2.Exportar datos a csv.
+## 2.Exportar datos a csv.
 
 -Crea las consultas .sql necesarias para exportar los datos de la base de datos relacional a ficheros .csv. Los ficheros deberán tener un formato acorde al diseño del punto 1.
-
-# HALL OF FAME
+Para exportar los datos desde estas consultas a csv, se ha usado un entorno mysql con los datos cargados, usando la opción de exportar.
+### HALL OF FAME
 
 Lo primero que tenemos que hacer es crear la tabla Hall of Fame, que usaremos para devolver los 5 mejores jugadores de cada mazmorra por pais.
 ```sql
@@ -174,7 +174,7 @@ INNER JOIN Dungeon ON CompletedDungeons.idD = Dungeon.idD;
 Seleccionamos el country, userName y email de la tabla WebUser; el idD de la tabla Dungeon; y el time y date de la tabla CompletedDungeons. Despues unimos WebUser con CompletedDungeons usando el campo email, y une CompletedDungeons con Dungeon usando el id de la mazmorra.
 
 
-# ESTADISTICAS DE USUARIO
+### ESTADISTICAS DE USUARIO
 
 Despues crearemos la tabla que almacene las estadisticas de usuario para consultar los tiempos que han tardado en completar una mazmorra ordenados de menor a mayor.
 ```sql
@@ -186,7 +186,7 @@ INNER JOIN CompletedDungeons ON CompletedDungeons.email = WebUser.email;
 Seleccionamos el email de la tabla WebUser, y el idD de la mazmorra, el tiempo en completarla, y la fecha cuando se completo. Despues unimos WebUser con CompletedDungeons usando el campo email.
 
 
- # HORDAS
+ ### HORDAS
 
 Finalmente crearemos la tabla para el evento de Hordas, para poder consultar los usuarios que mas enemigos han matado en una dungeon en concreto.
 ```sql
@@ -199,7 +199,7 @@ GROUP BY WebUser.Country, Kills.idE, WebUser.userName, WebUser.email;
 
 Seleccinamos el Country, el userName y el email de la tabla WebUser; el idE del evento y el idM de los monstruos de la tabal Kills. Este caso en particular, pues procesamos el numero de monstruos asesinados por el usuario y lo devolvemos como un int en la variable n_killed.
 
-# 3. Preparación de cluster local.
+## 3. Preparación de cluster local.
 
 -Prepara un cluster local de 3 nodos todos en el mismo rack y datacenter.
 
@@ -207,23 +207,23 @@ Creamos un archivo **compose.yml** que construye el cluster local de 3 nodos en 
 Despues definimos los contenedores individuales, son tres y los llamaremos node1, node2, node3. Definimos la version de Cassandra que usan, en nuestro caso la 5 y añadimos una serie de configuraciones para verificar que funcione correctamente. Mapeamos los puertos de los nodos al mismo puerto del host, para conectarnos a todos los nodos desde el mismo puerto y le asignamos volumenes para que haya persistenca de datos. 
 Finalmente añadimos la dependencia de nodos para controlar el inicio de los nodos y asegurarnos que los nodos funcionan correctamente antes de que se inicie el siguiente.
 
-# 4. Crear diseño en cassandra y cargar los ficheros
+## 4. Crear diseño en cassandra y cargar los ficheros
 - Haz un fichero .cql que creen tu diseño en Cassandra y cargue los ficheros .csv creados en el paso 2. Se debe utilizar un factor de replicación de 2 y tener en cuenta que se las pruebas se ejecutaran en un cluster local.
 
 
-# 5. Si es necesario actualizar tablas.
+## 5. Si es necesario actualizar tablas.
 - [OPCIONAL] Si el diseño lo necesita, actualiza la tabla de escrituras para incluir
 cualquier modificación que sea necesaria en la información que se le debe
 proporcionar al servidor.
 
 -Debido a que el diseño de las tablas ha sido el correcto, no es preciso realizar ninguna modificacion en estas.
 
-# 6. Consultas de lectura, escritura y nivel de consistencia .
+## 6. Consultas de lectura, escritura y nivel de consistencia .
 -Haz un fichero .cql que realice las consultas de escritura y lectura necesarias.
 Incluye el nivel de consistencia de cada consulta, teniendo en cuenta las
 características de los diferentes rankings.
 
-## 🔹 Consistencia en el Juego
+### 🔹 Consistencia en el Juego
 
 El sistema usa diferentes niveles de consistencia en Cassandra según la criticidad de los datos y la tolerancia a la latencia.  
 
@@ -231,7 +231,7 @@ Las queries están en el archivo queries_lectura_escritura.cql. A continuación 
 
 ---
 
-###  Hall of Fame  
+####  Hall of Fame  
 **Consistencia: `LOCAL_QUORUM`**  
 - Garantiza que la lectura refleje los datos más recientes confirmados.  
 - Muestra el **TOP 5 de jugadores** por país y mazmorra.  
@@ -241,7 +241,7 @@ Las queries están en el archivo queries_lectura_escritura.cql. A continuación 
 
 ---
 
-###  User Statistics  
+####  User Statistics  
 **Consistencia: `LOCAL_QUORUM`**  
 - Asegura que la lectura refleje los datos más recientes confirmados.  
 - Similar a *Hall of Fame*, prioriza **consistencia sobre velocidad**.  
@@ -249,7 +249,7 @@ Las queries están en el archivo queries_lectura_escritura.cql. A continuación 
 
 ---
 
-###  Top Horde  
+####  Top Horde  
 **Consistencia: `ONE`**  
 - Permite leer desde una **única réplica**, reduciendo latencia y mejorando fluidez.  
 - Este leaderboard se consulta **durante el gameplay activo de las Hordas**, donde la latencia es crítica.  
