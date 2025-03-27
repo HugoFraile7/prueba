@@ -4,7 +4,7 @@
 
 - En este apartado se va a justificar el diseño de una base de datos optimizada para un sistema de rankings de mazmorras, justificando las decisiones tomadas en la modelización de las tablas. Como es sabido tenemos que diseñar nuestras tablas para que estas puedan responder correctamente a todas las consultas de lectura y escritura. La clave de particion se establecera para que se puedan realizar las lecturas correctas y se buscará que los datos esten repartidos, la clave de clústering por su parte buscará proporcionarnos una manera de ordenar los datos según las consultas de lectura deseadas.
 - 
-### 2.1. Tabla `hall_of_fame`
+### 1.1. Tabla `hall_of_fame`
 ```sql
 CREATE TABLE hall_of_fame (
     country text,
@@ -37,7 +37,7 @@ En esta query se incluye el campo 'country' como parte de la clave. Es necesario
 -Query ejemplo: INSERT INTO hall_of_fame (country, idD, dungeon_name, email, userName, time_minutes, date)
 VALUES ('ja_JP', 0, 'Burghap, Prison of the Jealous Hippies', 'aabe@example.net', 'minorusuzuki', 20, toTimestamp(now());
 
-### 2.2. Tabla `user_statistics`
+### 1.2. Tabla `user_statistics`
 ```sql
 CREATE TABLE user_statistics (
     email text,
@@ -63,7 +63,7 @@ Cada vez que un usuario ejecute una mazmorra se realizará el siguiente INSERT:
 
 -Query ejemplo:INSERT INTO user_statistics (idD, email, time_minutes, date) VALUES (0, 'aabe@example.net', 20, toTimestamp(now()));
 
-### 2.3. Tabla `top_horde`
+### 1.3. Tabla `top_horde`
 ```sql
 CREATE TABLE top_horde (
     country text,
@@ -79,7 +79,86 @@ CREATE TABLE top_horde (
 - **Uso de `counter`:** Se utiliza para actualizar la cantidad de monstruos eliminados de manera eficiente, esta variable counter es necesaria ya que necesitamos contar los monstruos que ha matado cada jugador además de ser necesaria para las consultas de lectura y escritura. Hay que resaltar que al ser una variable tipo counter no podemos usarla como clave de clustering.
 - **Ordenación:** `email, user_name` garantiza que los datos se puedan recorrer sin colisiones.
 
+## Lectura:
 
+-Query genérica: UPDATE top_horde SET n_killed = n_killed + 1 WHERE country = <country> AND eId = <evento id> AND email = <email> AND userName=<user name>;
+
+-Query ejemplo: UPDATE top_horde SET n_killed = n_killed + 1 WHERE country = 'de_DE' AND idE = 0 AND email = 'qloeffler@example.org' AND user_name = 'abdul92';
+
+Como n_killed es de tipo counter se puede sumar uno cada vez que se produce la kill.
+## Escritura:
+-Query genérica: UPDATE top_horde SET n_killed = n_killed + 1 WHERE country = <country> AND eId = <evento id> AND email = <email> AND userName=<user name>;
+
+-Query ejemplo: UPDATE top_horde SET n_killed = n_killed + 1 WHERE country = 'de_DE' AND idE = 0 AND email = 'qloeffler@example.org' AND user_name = 'abdul92';
+
+Como n_killed es de tipo counter se puede sumar uno cada vez que se produce la kill.
+# 2.Exportar datos a csv.
+
+-Crea las consultas .sql necesarias para exportar los datos de la base de datos relacional a ficheros .csv. Los ficheros deberán tener un formato acorde al diseño del punto 1.
+
+# HALL OF FAME
+
+Lo primero que tenemos que hacer es crear la tabla Hall of Fame, que usaremos para devolver los 5 mejores jugadores de cada mazmorra por pais.
+```sql
+SELECT WebUser.Country AS country, Dungeon.idD, CompletedDungeons.time AS time_minutes, CompletedDungeons.date, WebUser.email, Dungeon.name AS dungeon_name, WebUser.userName
+FROM WebUser
+INNER JOIN CompletedDungeons ON CompletedDungeons.email = WebUser.email
+INNER JOIN Dungeon ON CompletedDungeons.idD = Dungeon.idD;
+```
+
+Seleccionamos el country, userName y email de la tabla WebUser; el idD de la tabla Dungeon; y el time y date de la tabla CompletedDungeons. Despues unimos WebUser con CompletedDungeons usando el campo email, y une CompletedDungeons con Dungeon usando el id de la mazmorra.
+
+
+# ESTADISTICAS DE USUARIO
+
+Despues crearemos la tabla que almacene las estadisticas de usuario para consultar los tiempos que han tardado en completar una mazmorra ordenados de menor a mayor.
+```sql
+SELECT WebUser.email, CompletedDungeons.idD, CompletedDungeons.time AS time_minutes, CompletedDungeons.date
+FROM WebUser
+INNER JOIN CompletedDungeons ON CompletedDungeons.email = WebUser.email;
+```
+
+Seleccionamos el email de la tabla WebUser, y el idD de la mazmorra, el tiempo en completarla, y la fecha cuando se completo. Despues unimos WebUser con CompletedDungeons usando el campo email.
+
+
+ # HORDAS
+
+Finalmente crearemos la tabla para el evento de Hordas, para poder consultar los usuarios que mas enemigos han matado en una dungeon en concreto.
+```sql
+SELECT WebUser.Country AS country, Kills.idE, WebUser.userName AS user_name, WebUser.email, COUNT(Kills.idM) AS n_killed
+FROM WebUser
+INNER JOIN Kills ON WebUser.email=Kills.email
+GROUP BY WebUser.Country, Kills.idE, WebUser.userName, WebUser.email;
+```
+
+
+Seleccinamos el Country, el userName y el email de la tabla WebUser; el idE del evento y el idM de los monstruos de la tabal Kills. Este caso en particular, pues procesamos el numero de monstruos asesinados por el usuario y lo devolvemos como un int en la variable n_killed.
+
+# 3. Preparación de cluster local.
+
+-Prepara un cluster local de 3 nodos todos en el mismo rack y datacenter.
+
+Creamos un archivo **compose.yml** que construye el cluster local de 3 nodos en el mismo rack y datacenter, para ello creamos primero una red personalizada tipo bridge llamada cassandra donde todos los nodos estaran conectados entre si y podran comunicarse.
+Despues definimos los contenedores individuales, son tres y los llamaremos node1, node2, node3. Definimos la version de Cassandra que usan, en nuestro caso la 5 y añadimos una serie de configuraciones para verificar que funcione correctamente. Mapeamos los puertos de los nodos al mismo puerto del host, para conectarnos a todos los nodos desde el mismo puerto y le asignamos volumenes para que haya persistenca de datos. 
+Finalmente añadimos la dependencia de nodos para controlar el inicio de los nodos y asegurarnos que los nodos funcionan correctamente antes de que se inicie el siguiente.
+
+# 4. Crear diseño en cassandra y cargar los ficheros
+- Haz un fichero .cql que creen tu diseño en Cassandra y cargue los ficheros .csv creados en el paso 2. Se debe utilizar un factor de replicación de 2 y tener en cuenta que se las pruebas se ejecutaran en un cluster local.
+
+
+# 5. Si es necesario actualizar tablas.
+- [OPCIONAL] Si el diseño lo necesita, actualiza la tabla de escrituras para incluir
+cualquier modificación que sea necesaria en la información que se le debe
+proporcionar al servidor.
+
+-Debido a que el diseño de las tablas ha sido el correcto, no es preciso realizar ninguna modificacion en estas.
+
+# 6. Consultas de lectura, escritura y nivel de consistencia .
+-Haz un fichero .cql que realice las consultas de escritura y lectura necesarias.
+Incluye el nivel de consistencia de cada consulta, teniendo en cuenta las
+características de los diferentes rankings.
+
+-Las querys de lectura y escritura son las que han sido previamente descritas en el apartado 1, almacenadas en el archivo lectura_escritura.cql.
 
 
 
