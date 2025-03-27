@@ -51,18 +51,30 @@ CREATE TABLE user_statistics (
 - **Clave primaria:** `(email, idD)` particiona los datos por usuario y mazmorra, permitiendo particionar la tabla de manera eficiente ya que se desea, que un jugador especifico pueda consultar los tiempos que ha tardado en completar una mazmorra determinada. 
 - **Clustering Order:** `time_minutes ASC, date ASC` permite consultar los tiempos ordenados de menor a mayor, ya que se desea, que un jugador pueda consultar los tiempos que ha tardado en consultar una mazmorra determinada en orden descendente, volvemos a incluir la fecha para que se pueda establecer un orden de prerioridad por aquellos registros que se han conseguido antes.
 
-
 ## Lectura
--Query genérica: SELECT time_minutes, date FROM user_statistics WHERE email = <email> AND idD = <dungeon_id>;
--Query ejemplo: SELECT time_minutes, date FROM user_statistics WHERE email = 'aabe@example.net' AND idD = 0;
 
-## Escritura:
-Cada vez que un usuario ejecute una mazmorra se realizará el siguiente INSERT:
+- **Query genérica:**  
+  ```sql
+  SELECT time_minutes, date FROM user_statistics WHERE email = <email> AND idD = <dungeon_id>;
+  ```
+- **Query ejemplo:**  
+  ```sql
+  SELECT time_minutes, date FROM user_statistics WHERE email = 'aabe@example.net' AND idD = 0;
+  ```
 
--Query genérica:INSERT INTO user_statistics (idD, email, time_minutes, date) VALUES (<dungeon_id>, <email>, <tiempo en minutos>, toTimestamp(now()));
+## Escritura
 
--Query ejemplo:INSERT INTO user_statistics (idD, email, time_minutes, date) VALUES (0, 'aabe@example.net', 20, toTimestamp(now()));
+Cada vez que un usuario ejecute una mazmorra se realizará el siguiente `INSERT`:
 
+- **Query genérica:**  
+  ```sql
+  INSERT INTO user_statistics (idD, email, time_minutes, date) 
+  VALUES (<dungeon_id>, <email>, <tiempo en minutos>, toTimestamp(now()));
+  ```
+- **Query ejemplo:**  
+  ```sql
+  INSERT INTO user_statistics (idD, email, time_minutes, date) 
+  VALUES (0, 'aabe@example.net', 20, toTimestamp(now()));
 ### 1.3. Tabla `top_horde`
 ```sql
 CREATE TABLE top_horde (
@@ -79,19 +91,40 @@ CREATE TABLE top_horde (
 - **Uso de `counter`:** Se utiliza para actualizar la cantidad de monstruos eliminados de manera eficiente, esta variable counter es necesaria ya que necesitamos contar los monstruos que ha matado cada jugador además de ser necesaria para las consultas de lectura y escritura. Hay que resaltar que al ser una variable tipo counter no podemos usarla como clave de clustering.
 - **Ordenación:** `email, user_name` garantiza que los datos se puedan recorrer sin colisiones.
 
-## Lectura:
 
--Query genérica: UPDATE top_horde SET n_killed = n_killed + 1 WHERE country = <country> AND eId = <evento id> AND email = <email> AND userName=<user name>;
+## Lectura
 
--Query ejemplo: UPDATE top_horde SET n_killed = n_killed + 1 WHERE country = 'de_DE' AND idE = 0 AND email = 'qloeffler@example.org' AND user_name = 'abdul92';
+- **Query genérica:**  
+  ```sql
+  SELECT userName, email, n_kills
+  FROM top_horde
+  WHERE country = <pais> AND event_id = <evento id>;
+  ```
+- **Query ejemplo:**  
+  ```sql
+  SELECT user_name, email, n_killed
+  FROM top_horde
+  WHERE country = 'de_DE' AND idE = 0;
+  ```
 
-Como n_killed es de tipo counter se puede sumar uno cada vez que se produce la kill.
-## Escritura:
--Query genérica: UPDATE top_horde SET n_killed = n_killed + 1 WHERE country = <country> AND eId = <evento id> AND email = <email> AND userName=<user name>;
+En este caso, no se puede ordenar por `n_killed`, ya que al ser `counter`, no puede ser incluida en la clave de clustering. Esto provoca que el ordenamiento y el filtrado por el valor `k` introducido (número de personas a incluir en el top) debe hacerse con herramientas externas como Python. Por ejemplo, se podría usar un `DataFrame` de `pandas` para introducir el resultado y hacer las correspondientes agrupaciones, ordenamientos y filtrado por número de personas a incluir en el top.
 
--Query ejemplo: UPDATE top_horde SET n_killed = n_killed + 1 WHERE country = 'de_DE' AND idE = 0 AND email = 'qloeffler@example.org' AND user_name = 'abdul92';
+## Escritura
 
-Como n_killed es de tipo counter se puede sumar uno cada vez que se produce la kill.
+- **Query genérica:**  
+  ```sql
+  UPDATE top_horde
+  SET n_killed = n_killed + 1
+  WHERE country = <country> AND eId = <evento id> AND email = <email> AND userName = <user name>;
+  ```
+- **Query ejemplo:**  
+  ```sql
+  UPDATE top_horde
+  SET n_killed = n_killed + 1
+  WHERE country = 'de_DE' AND idE = 0 AND email = 'qloeffler@example.org' AND user_name = 'abdul92';
+  ```
+
+Como `n_killed` es de tipo `counter`, se puede sumar uno cada vez que se produce la kill.
 # 2.Exportar datos a csv.
 
 -Crea las consultas .sql necesarias para exportar los datos de la base de datos relacional a ficheros .csv. Los ficheros deberán tener un formato acorde al diseño del punto 1.
