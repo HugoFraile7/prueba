@@ -227,7 +227,7 @@ características de los diferentes rankings.
 
 El sistema usa diferentes niveles de consistencia en Cassandra según la criticidad de los datos y la tolerancia a la latencia.  
 
-Las queries están en el archivo cql. A continuación se hablará de la consistencia de las queries expuestas en el apartado 1.
+Las queries están en el archivo queries_lectura_escritura.cql. A continuación se hablará de la consistencia de las queries expuestas en el apartado 1.
 
 ---
 
