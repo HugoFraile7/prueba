@@ -160,6 +160,8 @@ Como `n_killed` es de tipo `counter`, se puede sumar uno cada vez que se produce
 ## 2.Exportar datos a csv.
 
 -Crea las consultas .sql necesarias para exportar los datos de la base de datos relacional a ficheros .csv. Los ficheros deberán tener un formato acorde al diseño del punto 1.
+
+
 Para exportar los datos desde estas consultas a csv, se ha usado un entorno mysql con los datos cargados, usando la opción de exportar.
 ### HALL OF FAME
 
