@@ -3,7 +3,7 @@
 -Diseña una base de datos Cassandra para dar servicio a las lecturas y escrituras anteriores. Argumenta tus decisiones de diseño.
 
 - En este apartado se va a justificar el diseño de una base de datos optimizada para un sistema de rankings de mazmorras, justificando las decisiones tomadas en la modelización de las tablas. Como es sabido tenemos que diseñar nuestras tablas para que estas puedan responder correctamente a todas las consultas de lectura y escritura. La clave de particion se establecera para que se puedan realizar las lecturas correctas y se buscará que los datos esten repartidos, la clave de clústering por su parte buscará proporcionarnos una manera de ordenar los datos según las consultas de lectura deseadas.
-- 
+
 ### 1.1. Tabla `hall_of_fame`
 ```sql
 CREATE TABLE hall_of_fame (
@@ -20,22 +20,46 @@ CREATE TABLE hall_of_fame (
 #### Justificación:
 - **Clave primaria:** `(country, idD)` agrupa los datos por país y mazmorra, permitiendo particionar la tabla de forma eficiente, ya que en el enunciado se específica que se desea que los jugadores puedan consultar el top 5 por pais para cada mazmorra.
 - **Clustering Order:** `time_minutes ASC, date ASC, email ASC` permite ordenar los tiempos de menor a mayor, facilitando la consulta de los mejores registros, como sabemos en el enunciado especifica que se quiere consultar el top 5 de jugadores más rapidos para una mazmorra determinada, se incluye date con el objetivo de dar prioridad de orden a un jugador que hizo ese tiempo antes. Se incluye y email por que es preciso garantizar que la primary key sea única.
-## LECTURA:
+## Lectura
 
--Query genérica: SELECT idD, dungeon_name, email, userName, time_minutes, date  FROM hall_of_fame WHERE country = <country_name> AND idD=<dungeon_id> LIMIT 5;
--Se debe iterar entre las distintas dungeons (idD) en un lenguaje externo como Python.Esto es necesario porque Cassandra no permite bucles dentro de sus consultas. Se puede utilizar un bucle for en Python para iterar sobre un SET de python de todos los dungeon_id guardados en el csv. Cada iteración ejecuta una consulta específica para cada dungeon en Cassandra y se produce cada vez que un usuario completa una mazmorra determinada.
+- **Query genérica:**  
+  ```sql
+  CONSISTENCY LOCAL_QUORUM;
+  SELECT idD, dungeon_name, email, userName, time_minutes, date  
+  FROM hall_of_fame 
+  WHERE country = <country_name> AND idD = <dungeon_id> 
+  LIMIT 5;
+  ```
+- **Nota:**  
+  Se debe iterar entre las distintas mazmorras (`idD`) en un lenguaje externo como Python. Esto es necesario porque Cassandra no permite bucles dentro de sus consultas. Se puede utilizar un bucle `for` en Python para iterar sobre un `SET` de Python que contenga todos los `dungeon_id` guardados en el CSV. Cada iteración ejecuta una consulta específica para cada mazmorra en Cassandra y se produce cada vez que un usuario completa una mazmorra determinada.
 
--Query de ejemplo:
-SELECT idD, dungeon_name, email, userName, time_minutes, date  FROM hall_of_fame WHERE country = 'ko_KR' AND idd=3 LIMIT 5;
+- **Query ejemplo:**  
+  ```sql
+  CONSISTENCY LOCAL_QUORUM;
+  SELECT idD, dungeon_name, email, userName, time_minutes, date  
+  FROM hall_of_fame 
+  WHERE country = 'ko_KR' AND idD = 3 
+  LIMIT 5;
+  ```
 
-## ESCRITURA:
--Query genérica: INSERT INTO hall_of_fame (country, idD, dungeon_name, email, time_minutes, date)
-VALUES (<country_name>,<idD>,<dungeon_name>,<email>,<UserName>,<time_minutes>,toTimestamp(now()));
+## Escritura
 
-En esta query se incluye el campo 'country' como parte de la clave. Es necesario para permitir la ejecución eficiente de la consulta de lectura, en el enunciado se especifica que las consultas son específicas por países. Esto optimiza el rendimiento y cumple con los requisitos del problema.
+- **Query genérica:**  
+  ```sql
+  CONSISTENCY LOCAL_QUORUM;
+  INSERT INTO hall_of_fame (country, idD, dungeon_name, email, userName, time_minutes, date)
+  VALUES (<country_name>, <idD>, <dungeon_name>, <email>, <userName>, <time_minutes>, toTimestamp(now()));
+  ```
+- **Nota:**  
+  En esta query se incluye el campo `country` como parte de la clave. Es necesario para permitir la ejecución eficiente de la consulta de lectura, ya que en el enunciado se especifica que las consultas son específicas por países. Esto optimiza el rendimiento y cumple con los requisitos del problema.
 
--Query ejemplo: INSERT INTO hall_of_fame (country, idD, dungeon_name, email, userName, time_minutes, date)
-VALUES ('ja_JP', 0, 'Burghap, Prison of the Jealous Hippies', 'aabe@example.net', 'minorusuzuki', 20, toTimestamp(now());
+- **Query ejemplo:**  
+  ```sql
+  CONSISTENCY LOCAL_QUORUM;
+  INSERT INTO hall_of_fame (country, idD, dungeon_name, email, userName, time_minutes, date)
+  VALUES ('ja_JP', 0, 'Burghap, Prison of the Jealous Hippies', 'aabe@example.net', 'minorusuzuki', 20, toTimestamp(now()));
+  ```
+
 
 ### 1.2. Tabla `user_statistics`
 ```sql
@@ -55,10 +79,12 @@ CREATE TABLE user_statistics (
 
 - **Query genérica:**  
   ```sql
+  CONSISTENCY LOCAL_QUORUM;
   SELECT time_minutes, date FROM user_statistics WHERE email = <email> AND idD = <dungeon_id>;
   ```
 - **Query ejemplo:**  
   ```sql
+  CONSISTENCY LOCAL_QUORUM;
   SELECT time_minutes, date FROM user_statistics WHERE email = 'aabe@example.net' AND idD = 0;
   ```
 
@@ -68,11 +94,13 @@ Cada vez que un usuario ejecute una mazmorra se realizará el siguiente `INSERT`
 
 - **Query genérica:**  
   ```sql
+  CONSISTENCY LOCAL_QUORUM;
   INSERT INTO user_statistics (idD, email, time_minutes, date) 
   VALUES (<dungeon_id>, <email>, <tiempo en minutos>, toTimestamp(now()));
   ```
 - **Query ejemplo:**  
   ```sql
+  CONSISTENCY LOCAL_QUORUM;
   INSERT INTO user_statistics (idD, email, time_minutes, date) 
   VALUES (0, 'aabe@example.net', 20, toTimestamp(now()));
 ### 1.3. Tabla `top_horde`
@@ -96,12 +124,14 @@ CREATE TABLE top_horde (
 
 - **Query genérica:**  
   ```sql
+  CONSISTENCY ONE;
   SELECT userName, email, n_kills
   FROM top_horde
   WHERE country = <pais> AND event_id = <evento id>;
   ```
 - **Query ejemplo:**  
   ```sql
+  CONSISTENCY ONE;
   SELECT user_name, email, n_killed
   FROM top_horde
   WHERE country = 'de_DE' AND idE = 0;
@@ -113,12 +143,14 @@ En este caso, no se puede ordenar por `n_killed`, ya que al ser `counter`, no pu
 
 - **Query genérica:**  
   ```sql
+  CONSISTENCY ONE;
   UPDATE top_horde
   SET n_killed = n_killed + 1
   WHERE country = <country> AND eId = <evento id> AND email = <email> AND userName = <user name>;
   ```
 - **Query ejemplo:**  
   ```sql
+  CONSISTENCY ONE;
   UPDATE top_horde
   SET n_killed = n_killed + 1
   WHERE country = 'de_DE' AND idE = 0 AND email = 'qloeffler@example.org' AND user_name = 'abdul92';
@@ -191,7 +223,41 @@ proporcionar al servidor.
 Incluye el nivel de consistencia de cada consulta, teniendo en cuenta las
 características de los diferentes rankings.
 
--Las querys de lectura y escritura son las que han sido previamente descritas en el apartado 1, almacenadas en el archivo lectura_escritura.cql.
+## 🔹 Consistencia en el Juego
+
+El sistema usa diferentes niveles de consistencia en Cassandra según la criticidad de los datos y la tolerancia a la latencia.  
+
+---
+
+###  Hall of Fame  
+**Consistencia: `LOCAL_QUORUM`**  
+- Garantiza que la lectura refleje los datos más recientes confirmados.  
+- Muestra el **TOP 5 de jugadores** por país y mazmorra.  
+- La precisión es crucial, ya que los jugadores confían en estos rankings.  
+- Sin embargo, en el **campamento** (menú, no gameplay), se tolera un ligero retraso.  
+- Se usa la misma consistencia en la **escritura** para asegurar coherencia en la lectura.  
+
+---
+
+###  User Statistics  
+**Consistencia: `LOCAL_QUORUM`**  
+- Asegura que la lectura refleje los datos más recientes confirmados.  
+- Similar a *Hall of Fame*, prioriza **consistencia sobre velocidad**.  
+- Un retraso en la escritura no afecta al gameplay, según el enunciado.  
+
+---
+
+###  Top Horde  
+**Consistencia: `ONE`**  
+- Permite leer desde una **única réplica**, reduciendo latencia y mejorando fluidez.  
+- Este leaderboard se consulta **durante el gameplay activo de las Hordas**, donde la latencia es crítica.  
+- El enunciado permite cierta inconsistencia temporal ("bailar un poco"), pero evita divergencias extremas.  
+
+
+
+
+
+
 
 
 
